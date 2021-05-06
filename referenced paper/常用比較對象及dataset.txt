@@ -1,0 +1,46 @@
+找disparity作法
+找warping作法
+
+論文方法比Occlusion-aware Depth Estimation Using Light-field Cameras好
+
+看評比方法和data set
+1.Light-Field Image Super-Resolution Using Convolutional Neural Network
+IEEE Signal Processing Letters, 2017
+Quantitative evaluation(用PSNR,SSIM測量): 
+	data set: Heidelberg Collaboratory for Image Processing(HCI) 14張合成LF影像, one million patches來train, 用HCI的Buddha, Mona作為 test set
+	比較對象：Bilinear, Bicubic, 
+		傳統方法：
+			“Variational light field analysis for disparity estimation and super-resolution,”,
+		 	(state-of-art)“Light field denoising, light field superresolution and stereo camera based refocussing using a GMM light field patch prior,”(會用到disparity map的方法)
+Qualitative Evaluation(秀圖片出來直接比較):
+	data set: Lytro Illum camera, 201 LF images as the training set
+	比較對象：Bicubic, 
+		傳統方法：
+			(state-of-art)“ Light field denoising, light field superresolution and stereo camera based refocussing using a GMM light field patch prior,”(此論文假設LF image 完美，但現實的相機無法拍出有完美disparity map的image)
+
+2.Super Resolution of Light Field Images Using Linear Subspace Projection of Patch-Volumes
+IEEE Journal of Selected Topics in Signal Processing, 2017
+	data set：(synthetsis)HCI, (real-world)Stanford dataset裝在龍門架上的移動相機, INRIA dataset用Lytro Illum相機拍的
+	比較對象: 傳統方法：
+			“Light field denoising, light field superresolution and stereo camera based refocusing using aGMMlight field patch prior,”
+		  機器學習：
+			“Learning a deep convolutional network for light-field image super-resolution,”
+			“A statistical prediction model based on sparse representations for single image super-resolution,”
+			“Image super-resolution using deep convolutional networks,”
+			“Joint learning of multiple regressors for single image super-resolution,”
+	評量方法: PSNR,直接看結果圖
+
+3.Geometry-Consistent Light Field Super-Resolution via Graph-Based Regularization
+IEEE TRANSACTIONS ON IMAGE PROCESSING, VOL. 27, NO. 9, SEPTEMBER 2018
+	data set: HCI, Stanford light field
+	比較對象：用disparity map：
+			S. Wanner and B. Goldluecke, “Spatial and angular variational superresolution of 4D light fields,”
+			K. Mitra and A. Veeraraghavan, “Light field denoising, light field superresolution and stereo camera based refocussing using a GMM light field patch prior,”
+		  用深度學習：
+			(state of art)C. Dong, C. C. Loy, K. He, and X. Tang, “Learning a deep convolutional network for image super-resolution,”
+	評量方法：PSNR, 看圖片
+
+
+HCI dataset: https://hci.iwr.uni-heidelberg.de/hci/softwares/light_field_analysis
+Stanford dataset: http://lightfield.stanford.edu/
+INRIA dataset: http://www.irisa.fr/temics/demos/lightField/CLIM/DataSoftware.html
