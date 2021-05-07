@@ -88,7 +88,7 @@ def occlusion_Fusion(disp_arr_mid, disp_arr_sub, height, width):
 def oneOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width):
     one_occlusion = np.zeros((height, width))
     disp_arr_mid_copy = disp_arr_mid.copy()
-    kernel = np.ones((3, 3), np.uint8) #kernel為1, 1 = occlusion
+    kernel = np.ones((3, 3), np.uint8) #kernel為1, 1 = occlusion    
     for k in range(17):
         occlusion_arr[k] = cv2.dilate(occlusion_arr[k],kernel,iterations = 1)
     for k in range(17):
@@ -119,6 +119,12 @@ def oneOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width):
             for j in range(width):
                 if(displace[i, j] == 1):
                     disp_arr_mid[k, i, j] = disp_arr_mid_copy[sym, i, j]
+    count = 0
+    for i in range(height):
+        for j in range(width):
+            if(one_occlusion[i,j] == 1):
+                count += 1
+    print(count)
     return disp_arr_mid, one_occlusion
 
 # =============================================================================
@@ -198,6 +204,13 @@ def ringOcc_dilateFirst(occlusion_arr,disp_arr_mid, height, width):
             for j in range(width):
                 if(displace[i, j] == 1):
                     disp_arr_mid[k, i, j] = disp_arr_mid_copy[sym, i, j]
+    count = np.zeros((4))
+    for a in range(4):
+        for b in range(height):
+            for c in range(width):
+                if(ring_occlusion[a,b,c] == 1):
+                    count[a] += 1
+    print(count)
     return disp_arr_mid, ring_occlusion
 
 # =============================================================================
