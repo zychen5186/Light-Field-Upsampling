@@ -8,14 +8,14 @@ Created on Wed Feb  3 13:17:34 2021
 備註：PMS裡面是right補給left
 
 """
-
+#%%
 import cv2
 import numpy as np
 from openpyxl import Workbook
 from metrics import SSIM
 import utils
 import occlusion_utils
-
+#%%
 if __name__ == '__main__':
     np.set_printoptions(suppress=True)
     #%% 計算中心圖抽樣放大前後誤差diff(為int32有正有負)
@@ -64,8 +64,8 @@ if __name__ == '__main__':
     #utils.disp_error_pix_error(disp_arr_mid, disp_arr_sub, height, width)
     #%% 處理occlusion區域 
     unwarpedMap = "one" #one, ring, inde, fusion
-    disp_arr_sub = disp_arr_sub.astype(np.int32)
     disp_arr_mid = disp_arr_mid.astype(np.int32)
+    disp_arr_sub = disp_arr_sub.astype(np.int32)
     print("Occlusion Handling by "+ unwarpedMap +"...")
     threshold = 1
     occlusion_arr = np.zeros((17, height, width), dtype = np.uint8)
@@ -150,7 +150,8 @@ if __name__ == '__main__':
     ws = wb.active
     ws.append(["","bilinear_psnr","compensate_"+ method +"_psnr","bilinear_SSIM","compensate_"+ method +"_SSIM"])
     diftmp = dif.astype(np.float32)
-    for k in range(17):
+#%%
+    for k in range(4):
         
         if(k!=8):
             print("Warping difference map by "+ method +" disparity on " + str(k) + "...")
@@ -159,7 +160,6 @@ if __name__ == '__main__':
             sub_re = cv2.resize(sub_down, (width, height), interpolation = cv2.INTER_LINEAR)#換圖要改
             difUp = cv2.resize(diftmp, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
             dispUp = cv2.resize(disp, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
-            
 # =============================================================================
 #             occUp = np.zeros((17, int(width*4), int(height*4)))
 #             for i in range(17):
@@ -171,9 +171,11 @@ if __name__ == '__main__':
 #                 occUp[i] = cv2.resize(ring_occlusion[i], (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
 # =============================================================================
             occUp = cv2.resize(one_occlusion, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
+            #occUp = np.ceil(occUp)
             
             warpUp = np.zeros((int(width*4), int(height*4), 3))
             new_sub = (sub_re.copy()).astype(np.int32)
+            #disparity map跟difference map都放大4被後做warping, 且都為occlusion的部分不補
 
             if(k == 0 or k == 4 or k == 12 or k == 16):
                 tmp = 0
@@ -183,40 +185,15 @@ if __name__ == '__main__':
                 tmp = 2
             elif(k == 3 or k == 7 or k == 9 or k == 13):
                 tmp = 3  
-            
-            #計算all occlusion的點warp後會到哪裡
-            newOcc = np.zeros((int(width), int(height)))
-            if( k >= 0 and k <= 3):
-                for i in range(height):
-                    for j in range(width):
-                        if((i + disp[i,j]) < height and one_occlusion[i,j] == 1):
-                            newOcc[i + disp[i,j], j] = 1
-                            
-            elif( k >= 4 and k <= 7):
-                for i in range(height):
-                    for j in range(width):
-                        if((j + disp[i,j]) < width and one_occlusion[i,j] == 1):
-                            newOcc[i, j + disp[i,j]] = 1
-                            
-            elif( k >= 9 and k <= 12):
-                for i in range(height):
-                    for j in range(width):
-                        if((j - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
-                            newOcc[i, j - disp[i,j]] = 1
-                            
-            elif( k >= 13 and k <= 16):
-                for i in range(height):
-                    for j in range(width):
-                        if((i - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
-                            newOcc[i - disp[i,j], j] = 1               
                 
-            #disparity map跟difference map都放大4被後做warping, 且都為occlusion的部分不補
+# =============================================================================       
             unwarped = np.full((int(width*4), int(height*4)),1, dtype = np.uint8)
             newOccUp = np.zeros((int(width*4), int(height*4)),dtype = np.uint8)
             if(k >= 0 and k <= 3):
                 for i in range(height*4):
                     for j in range(width*4):
                         if((i + dispUp[i, j]) < height*4):
+                            
                             if(occUp[i,j] == 1):
                                 newOccUp[i + dispUp[i, j], j] = 1
                             else:
@@ -226,7 +203,8 @@ if __name__ == '__main__':
             elif(k >= 4 and k <= 7):
                 for i in range(height*4):
                     for j in range(width*4):
-                        if((j + dispUp[i, j]) < width*4):      
+                        if((j + dispUp[i, j]) < width*4):
+                            
                             if(occUp[i,j] == 1):
                                 newOccUp[i, j + dispUp[i, j]] = 1
                             else:
@@ -237,6 +215,7 @@ if __name__ == '__main__':
                 for i in range(height*4):
                     for j in range(width*4):
                         if((j - dispUp[i, j]) >= 0):
+                            
                             if(occUp[i,j] == 1):
                                 newOccUp[i, j - dispUp[i, j]] = 1
                             else:
@@ -252,36 +231,83 @@ if __name__ == '__main__':
                             else:
                                 unwarped[i - dispUp[i, j], j] = 0
                                 warpUp[i - dispUp[i, j], j, :] = difUp[i, j, :]
-
+# =============================================================================     
+            print("unwarpped and occlusion")
             ipMask = np.multiply(unwarped,newOccUp) #沒被warp到且為occlusion
-
-            #實作論文補洞方法
-
-            warpDown = cv2.resize(warpUp, (width, height),interpolation=cv2.INTER_LINEAR)
-            warped = warpDown.astype(np.int32)   
+            #ipMask = unwarped.copy() #補都沒有被warp的pixel
+            oriMask = np.ones(newOccUp.shape)
+            oriMask = oriMask - ipMask.clip(0,1)          
+            for i in range(3):
+                warpUp[:,:,i] = warpUp[:,:,i]*oriMask
+            warpClip = np.clip(warpUp, -128, 127)
             
-            for i in range(height):
-                for j in range(width):
-                    new_sub[i,j] += warped[i,j]
+            warpClip = (warpClip+128).astype(np.uint8)
+            cv2.imwrite("warping_dataset/bike/dif_data/"+ str(k) +"_before.png", warpClip)
+
+            dst = cv2.inpaint(warpClip,ipMask,3,cv2.INPAINT_NS)   
+            
+            dsts = np.clip(dst, 0, 255)
+            dsts = dsts.astype(np.uint8)
+            #cv2.imshow('dsts',dsts)
+            #cv2.waitKey(0)
+            #cv2.imshow("warpUp", dst.astype(np.uint8))
+            cv2.imwrite("warping_dataset/bike/dif_data/"+ str(k) +"_after.png", dsts)
+            #dst = dst.astype(np.int32)
+            
+            
+
+            warpDown = cv2.resize(dst, (width, height),interpolation=cv2.INTER_LINEAR)
+            warped = warpDown.astype(np.int32)   
+            new_sub = new_sub + warped -128
+           
+# =============================================================================            
+#沒有做 inpaint            
+            """ warpDown = cv2.resize(warpUp, (width, height),interpolation=cv2.INTER_LINEAR)
+            warped = warpDown.astype(np.int32) 
+            new_sub =new_sub+warped """
+# =============================================================================               
             #warped = warped.astype(np.uint8)
 # =============================================================================
 #             cv2.imshow("a", warped)
 #             cv2.waitKey(0)
 # =============================================================================
-                 
             
+            
+            #this
 # =============================================================================
-#             #看occlusion位置
 #             for i in range(height):
 #                 for j in range(width):
 #                     if(one_occlusion[i,j]==1):
 #                         one_occlusion[i,j] = 255
 #             one_occlusion = one_occlusion.astype(np.uint8)
 #             cv2.imshow("a", one_occlusion)
-#             cv2.imwrite("occluded_difmap.png", warped)
-#             cv2.imwrite("occlusion_map.png", one_occlusion)
 # =============================================================================
-      
+            
+            #cv2.imwrite("occluded_difmap.png", warped)
+            #cv2.imwrite("occlusion_map.png", one_occlusion)
+
+# =============================================================================
+#             negative = 0
+#             positive = 0
+#             Wnegative = 0
+#             Wpositive = 0
+#             for i in range(height):
+#                 for j in range(width):
+#                     if(one_occlusion[i,j]!=1):
+#                         new_sub[i,j,:] += warped[i,j,:]
+#                         for k in range(3):
+#                             if(new_sub[i,j,k] < 0):
+#                                 negative += 1
+#                             if(new_sub[i,j,k] > 255):
+#                                 positive += 1
+#                             if(warped[i,j,k] < -128):
+#                                 Wnegative += 1
+#                             if(warped[i,j,k] > 128):
+#                                 Wpositive += 1
+#             print(negative,positive,Wnegative,Wpositive)
+# =============================================================================
+
+            
 #沒有放大四倍再warp
 # =============================================================================
 #             if( k >= 0 and k <= 3):
@@ -308,10 +334,17 @@ if __name__ == '__main__':
 #                         if((i - disp[i,j]) >= 0):
 #                             new_sub[i - disp[i,j], j] += dif[i,j]                
 # =============================================================================
+
+
+# =============================================================================
+        
+# =============================================================================
+
             
             new_sub = np.clip(new_sub, 0, 255)
             new_sub = new_sub.astype(np.uint8)
-            
+            #cv2.imshow('new_sub',new_sub)
+            #cv2.waitKey(0)
             SSIM_R = SSIM(sub[:,:,2], sub_re[:,:,2])
             SSIM_G = SSIM(sub[:,:,1], sub_re[:,:,1])
             SSIM_B = SSIM(sub[:,:,0], sub_re[:,:,0])
@@ -522,3 +555,5 @@ if __name__ == '__main__':
 #     wb.save('warping_dataset/bike/ring_compensate.xlsx') 
 # =============================================================================
 
+
+# %%
