@@ -8,15 +8,17 @@ Created on Wed Feb  3 13:17:34 2021
 備註：PMS裡面是right補給left
 
 """
-
+import time
 import cv2
 import numpy as np
+import math
 from openpyxl import Workbook
 from metrics import SSIM
 import utils
 import occlusion_utils
 
 if __name__ == '__main__':
+    start = time.time()
     np.set_printoptions(suppress=True)
     #%% 計算中心圖抽樣放大前後誤差diff(為int32有正有負)
     print("Calculating difference...")
@@ -63,7 +65,7 @@ if __name__ == '__main__':
     #%% 算disparity error越大，是否實際pixel值也差越多
     #utils.disp_error_pix_error(disp_arr_mid, disp_arr_sub, height, width)
     #%% 處理occlusion區域 
-    unwarpedMap = "one" #one, ring, inde, fusion
+    unwarpedMap = "fusion" #one, ring, inde, fusion
     disp_arr_sub = disp_arr_sub.astype(np.int32)
     disp_arr_mid = disp_arr_mid.astype(np.int32)
     print("Occlusion Handling by "+ unwarpedMap +"...")
@@ -106,13 +108,14 @@ if __name__ == '__main__':
                     else:
                         occlusion_arr[k,i,j] = 1
                             
-    if(unwarpedMap == "one"):
+    if(unwarpedMap == "one"):#全部一個occlusion map
         disp_arr_mid, one_occlusion = occlusion_utils.oneOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width)
-    elif(unwarpedMap == "ring"):
+    elif(unwarpedMap == "ring"):#每一圈一個occlusion map
         disp_arr_mid, ring_occlusion = occlusion_utils.ringOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width)
-    elif(unwarpedMap == "inde"):
+    elif(unwarpedMap == "inde"):#每個子圖一個occlusion map
         disp_arr_mid, inde_occlusion = occlusion_utils.indeOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width)
-
+    elif(unwarpedMap == "fusion"):#每個子圖一個occlusion map
+        disp_arr_mid, fusion_occlusion = occlusion_utils.occlusion_Fusion(disp_arr_mid, disp_arr_sub, height, width)
     
                     
     #%%選擇如何處理outliers, output:disp
@@ -160,17 +163,15 @@ if __name__ == '__main__':
             difUp = cv2.resize(diftmp, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
             dispUp = cv2.resize(disp, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
             
-# =============================================================================
-#             occUp = np.zeros((17, int(width*4), int(height*4)))
-#             for i in range(17):
-#                 occUp[i] = cv2.resize(inde_occlusion[i], (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
-# =============================================================================
+            occUp = np.zeros((17, int(width*4), int(height*4)))
+            for i in range(17):
+                occUp[i] = cv2.resize(inde_occlusion[i], (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
 # =============================================================================
 #             occUp = np.zeros((4,int(width*4), int(height*4)))
 #             for i in range(4):
 #                 occUp[i] = cv2.resize(ring_occlusion[i], (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
 # =============================================================================
-            occUp = cv2.resize(one_occlusion, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
+            #occUp = cv2.resize(one_occlusion, (int(width*4), int(height*4)), interpolation=cv2.INTER_LINEAR)
             
             warpUp = np.zeros((int(width*4), int(height*4), 3))
             new_sub = (sub_re.copy()).astype(np.int32)
@@ -183,32 +184,34 @@ if __name__ == '__main__':
                 tmp = 2
             elif(k == 3 or k == 7 or k == 9 or k == 13):
                 tmp = 3  
-            
-            #計算all occlusion的點warp後會到哪裡
-            newOcc = np.zeros((int(width), int(height)))
-            if( k >= 0 and k <= 3):
-                for i in range(height):
-                    for j in range(width):
-                        if((i + disp[i,j]) < height and one_occlusion[i,j] == 1):
-                            newOcc[i + disp[i,j], j] = 1
-                            
-            elif( k >= 4 and k <= 7):
-                for i in range(height):
-                    for j in range(width):
-                        if((j + disp[i,j]) < width and one_occlusion[i,j] == 1):
-                            newOcc[i, j + disp[i,j]] = 1
-                            
-            elif( k >= 9 and k <= 12):
-                for i in range(height):
-                    for j in range(width):
-                        if((j - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
-                            newOcc[i, j - disp[i,j]] = 1
-                            
-            elif( k >= 13 and k <= 16):
-                for i in range(height):
-                    for j in range(width):
-                        if((i - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
-                            newOcc[i - disp[i,j], j] = 1               
+# =============================================================================
+#             
+#             #計算all occlusion的點warp後會到哪裡
+#             newOcc = np.zeros((int(width), int(height)))
+#             if( k >= 0 and k <= 3):
+#                 for i in range(height):
+#                     for j in range(width):
+#                         if((i + disp[i,j]) < height and one_occlusion[i,j] == 1):
+#                             newOcc[i + disp[i,j], j] = 1
+#                             
+#             elif( k >= 4 and k <= 7):
+#                 for i in range(height):
+#                     for j in range(width):
+#                         if((j + disp[i,j]) < width and one_occlusion[i,j] == 1):
+#                             newOcc[i, j + disp[i,j]] = 1
+#                             
+#             elif( k >= 9 and k <= 12):
+#                 for i in range(height):
+#                     for j in range(width):
+#                         if((j - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
+#                             newOcc[i, j - disp[i,j]] = 1
+#                             
+#             elif( k >= 13 and k <= 16):
+#                 for i in range(height):
+#                     for j in range(width):
+#                         if((i - disp[i,j]) >= 0 and one_occlusion[i,j] == 1):
+#                             newOcc[i - disp[i,j], j] = 1               
+# =============================================================================
                 
             #disparity map跟difference map都放大4被後做warping, 且都為occlusion的部分不補
             unwarped = np.full((int(width*4), int(height*4)),1, dtype = np.uint8)
@@ -217,7 +220,7 @@ if __name__ == '__main__':
                 for i in range(height*4):
                     for j in range(width*4):
                         if((i + dispUp[i, j]) < height*4):
-                            if(occUp[i,j] == 1):
+                            if(occUp[k,i,j] == 1):
                                 newOccUp[i + dispUp[i, j], j] = 1
                             else:
                                 unwarped[i + dispUp[i, j], j] = 0
@@ -227,7 +230,7 @@ if __name__ == '__main__':
                 for i in range(height*4):
                     for j in range(width*4):
                         if((j + dispUp[i, j]) < width*4):      
-                            if(occUp[i,j] == 1):
+                            if(occUp[k,i,j] == 1):
                                 newOccUp[i, j + dispUp[i, j]] = 1
                             else:
                                 unwarped[i, j + dispUp[i, j]] = 0
@@ -237,7 +240,7 @@ if __name__ == '__main__':
                 for i in range(height*4):
                     for j in range(width*4):
                         if((j - dispUp[i, j]) >= 0):
-                            if(occUp[i,j] == 1):
+                            if(occUp[k,i,j] == 1):
                                 newOccUp[i, j - dispUp[i, j]] = 1
                             else:
                                 unwarped[i, j - dispUp[i, j]] = 0
@@ -247,7 +250,7 @@ if __name__ == '__main__':
                 for i in range(height*4):
                     for j in range(width*4):
                         if((i - dispUp[i, j]) >= 0):
-                            if(occUp[i,j] == 1):
+                            if(occUp[k,i,j] == 1):
                                 newOccUp[i - dispUp[i, j], j] = 1
                             else:
                                 unwarped[i - dispUp[i, j], j] = 0
@@ -255,7 +258,25 @@ if __name__ == '__main__':
 
             ipMask = np.multiply(unwarped,newOccUp) #沒被warp到且為occlusion
 
-            #實作論文補洞方法
+# =============================================================================
+#             #實作論文補洞方法
+#             for i in range(3,height*4 - 3):
+#                 for j in range(3,width*4 - 3):
+#                     if(ipMask[i,j] == 1):
+#                         top = 0
+#                         bottom = 0
+#                         for g in range(-3,4):
+#                             for h in range(-3,4):
+#                                 m = i + g
+#                                 l = j + h
+#                                 c = math.exp(-((((warpUp[i,j,0]*0.11 + warpUp[i,j,1]*0.59 + warpUp[i,j,2]*0.3) 
+#                                                  - (warpUp[m,l,0]*0.11 + warpUp[m,l,1]*0.59 + warpUp[m,l,2]*0.3))**2)))
+#                                 d = math.exp(-((g**2 + h**2)))
+#                                 w = c * d
+#                                 top += w * warpUp[m,l]
+#                                 bottom += w
+#                         warpUp[i,j] = top / bottom
+# =============================================================================
 
             warpDown = cv2.resize(warpUp, (width, height),interpolation=cv2.INTER_LINEAR)
             warped = warpDown.astype(np.int32)   
@@ -329,6 +350,10 @@ if __name__ == '__main__':
             print("SSIM sub_re: " + str(SSIM_sub_re))
             print("SSIM new_sub: " + str(SSIM_new_sub))
             #cv2.imwrite("warping_dataset/bike/after_compensate/"+ str(k) + "_" + method +"_withoutOcclusion_twoside_thresh1.png", new_sub) 
+    end = time.time()
+    total = end-start
+    print(total)
+    ws.append([str(total)])
     wb.save('warping_dataset/bike/testing.xlsx')
      
 # =============================================================================

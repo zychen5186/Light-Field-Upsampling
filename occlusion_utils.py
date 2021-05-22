@@ -37,7 +37,7 @@ def occlusion_Fusion(disp_arr_mid, disp_arr_sub, height, width):
                         error_arr[k,i,j] = abs(disp_arr_mid[k,i,j] - disp_arr_sub[k,i - disp_arr_mid[k,i,j],j])
     
     disp_arr_mid_copy = disp_arr_mid.copy()
-    all_occ_arr = np.zeros((17,height,width), dtype = np.uint8)
+    inde_occ_arr = np.zeros((17,height,width), dtype = np.uint8)#其他三個的error都比自己大的時候
     for k in range(17):
         sym = 16-k
         if(k<8):
@@ -54,10 +54,10 @@ def occlusion_Fusion(disp_arr_mid, disp_arr_sub, height, width):
         for i in range(height):
             for j in range(width):
                 deno = 0
-                if(error_arr[k,i,j] > 1):
-                    if(error_arr[sym,i,j] == 0):
+                if(error_arr[k,i,j] > 1):#如果自己的disparity是occlusion
+                    if(error_arr[sym,i,j] == 0):#對面若error=0拿對面
                         disp_arr_mid[k,i,j] = disp_arr_mid_copy[sym,i,j]
-                    else:
+                    else:#否則看另外兩邊
                         if(error_arr[com_a,i,j] == 0 and error_arr[com_b,i,j] == 0):
                             disp_arr_mid[k,i,j] = (disp_arr_mid_copy[com_a,i,j] + disp_arr_mid_copy[com_b,i,j])//2
                         elif(error_arr[com_a,i,j] == 0):
@@ -81,9 +81,10 @@ def occlusion_Fusion(disp_arr_mid, disp_arr_sub, height, width):
                             else:
                                 com_b_error = 0 
                             if(deno != 0):
-                                disp_arr_mid[k,i,j] = sym_error/deno * disp_arr_mid_copy[sym,i,j] + com_a_error/deno * disp_arr_mid_copy[com_a,i,j] + com_b_error/deno * disp_arr_mid_copy[com_b,i,j]
+                                disp_arr_mid[k,i,j] = ((sym_error/deno) * disp_arr_mid_copy[sym,i,j]) + ((com_a_error/deno) * disp_arr_mid_copy[com_a,i,j]) + ((com_b_error/deno) * disp_arr_mid_copy[com_b,i,j])
                             else:
-                                all_occ_arr[k,i,j] = 1
+                                inde_occ_arr[k,i,j] = 1#全部都是occlusion的就不補
+    return(disp_arr_mid, inde_occ_arr)
                           
 def oneOcc_dilateFirst(occlusion_arr, disp_arr_mid, height, width):
     one_occlusion = np.zeros((height, width))
